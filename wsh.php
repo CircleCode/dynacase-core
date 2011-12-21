@@ -14,6 +14,8 @@
  * @package FDL
  */
 
+require_once 'getopts.php';
+
 ini_set("max_execution_time", "3600");
 include_once ("WHAT/Lib.Prefix.php");
 include_once ('Class.Action.php');
@@ -21,10 +23,34 @@ include_once ('Class.Application.php');
 include_once ('Class.Session.php');
 include_once ('Class.Log.php');
 
+define('WSH_GETOPTS_LEGACY', 'WSH_GETOPTS_LEGACY');
+define('WSH_GETOPTS_NEW', 'WSH_GETOPTS_NEW');
+
+define('APIDIR', 'API');
+
 function print_usage()
 {
-    print "Usage\twsh.php --app=APPLICATION --action=ACTION [--ARG=VAL] ...:  execute an action\n" . "\twsh.php --api=API [--ARG=VAL] ....   :  execute an api function\n" . "\twsh.php --listapi                     : view api list\n";
+    print "Usage:\n" .
+        "\twsh.php --app <APPLICATION-NAME> --action <ACTION-NAME> [--arg <ARG-NAME>=<ARG-VAL> ...] :\n" .
+        "\t\texecute an action\n" .
+        "\twsh.php --api <API-NAME> [--arg <ARG-NAME>=<ARG-VAL> ...] :\n" .
+        "\t\texecute an api function\n" .
+        "\twsh.php --listapi :\n" .
+        "\t\tview api list\n";
 }
+
+function print_listApi($pretty=true) {
+    if($pretty){
+        $cmdListApi = sprintf('ls -1 %s | sed -n -e \'s/\(.*\)\.php$/\t\- \1/p\'', escapeshellarg(DEFAULT_PUBDIR . APIDIR));
+    } else {
+        $cmdListApi = sprintf('ls -1 %s | sed -n -e \'s/\.php$//p\'', escapeshellarg(DEFAULT_PUBDIR.APIDIR));
+    }
+    print "application list :\n";
+    print shell_exec($cmdListApi);
+    print "\n";
+    exit(0);
+}
+
 wbar(1, -1, "initialisation");
 $log = new Log("", "index.php");
 
@@ -44,26 +70,99 @@ if (count($argv) == 1) {
     exit(1);
 }
 
+/*
+ * Parse arguments
+ */
+
+$wshOpts = array();
+
+// for compatibility, try the old way first
+$wshGetOptsMode = WSH_GETOPTS_NEW;
 foreach ($argv as $k => $v) {
-    
     if (preg_match("/--([^=]+)=(.+)/", $v, $reg)) {
-        $_GET[$reg[1]] = $reg[2];
+        $wshOpts[$reg[1]] = $reg[2];
+        // at least one of the params was given
+        // the old way.
+        // consider everything is given the old way
+        $wshGetOptsMode = WSH_GETOPTS_LEGACY;
     } else if (preg_match("/--(.+)/", $v, $reg)) {
         if ($reg[1] == "listapi") {
-            print "application list :\n";
-            echo "\t- ";
-            echo str_replace("\n", "\n\t- ", shell_exec(sprintf("cd %s/API;ls -1 *.php| cut -f1 -d'.'", escapeshellarg(DEFAULT_PUBDIR))));
-            echo "\n";
-            exit;
+            print_listApi();
         }
         $_GET[$reg[1]] = true;
     }
 }
 
-if (($_GET["api"] == "") && ($_GET["app"] == "" || $_GET["action"] == "")) {
-    print_usage();
-    exit(1);
+if($wshGetOptsMode === WSH_GETOPTS_NEW){
+    $wshOpts = getopts(array(
+        'listapi' => array(
+            'switch' => array('l', 'listapi'),
+            'type'   => GETOPT_SWITCH
+        ),
+        'api'     => array(
+            'switch' => array('s', 'script', 'api'),
+            'type'   => GETOPT_VAL
+        ),
+        'app'     => array(
+            'switch' => array('A', 'App', 'app'),
+            'type'   => GETOPT_VAL
+        ),
+        'action'     => array(
+            'switch' => array('a', 'action'),
+            'type'   => GETOPT_VAL
+        ),
+        'params'     => array(
+            'switch' => array('p', 'param'),
+            'type'   => GETOPT_KEYVAL
+        ),
+        'userid'     => array(
+            'switch' => array('u', 'userid'),
+            'type'   => GETOPT_VAL
+        )
+    ), $_SERVER['argv']);
+
+    if($wshOpts['listapi']){
+        print_listApi(true);
+    } elseif((!$wshOpts["api"])
+        && (!$wshOpts["app"]
+            || !$wshOpts["action"])){
+        print_usage();
+        exit(1);
+    }
+
+    // unset are required since the code
+    // use things like if(isset($_GET['api']))
+    // TODO: it would be better to use
+    // if( isset($_GET['api']) && !empty($_GET['api']) )
+    if ($wshOpts[api] === 0) {
+        unset($wshOpts[api]);
+    }
+    if ($wshOpts[app] === 0) {
+        unset($wshOpts[app]);
+    }
+    if ($wshOpts[action] === 0) {
+        unset($wshOpts[action]);
+    }
+    if ($wshOpts[userid] === 0) {
+        unset($wshOpts[userid]);
+    }
+
+    // unset are required because of the default strict mode
+    // in ApiUsage / ActionUsage
+    if (isset($wshOpts[cmdline])) {
+        unset($wshOpts[cmdline]);
+    }
+    if (isset($wshOpts[listapi])) {
+        unset($wshOpts[listapi]);
+    }
+
+    $wshParams = $wshOpts['params'];
+    unset($wshOpts['params']);
+    $_GET = array_merge($_GET, $wshOpts, $wshParams);
+} else {
+    $_GET = array_merge($_GET, $wshOpts);
 }
+// EO Parse arguments
 
 $core = new Application();
 if ($core->dbid < 0) {

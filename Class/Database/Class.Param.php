@@ -20,13 +20,23 @@ include_once ('Class.Log.php');
 include_once ('Class.DbObj.php');
 include_once ('Class.ParamDef.php');
 
+/** @deprecated use Param::PARAM_APP instead */
 define("PARAM_APP", "A");
+/** @deprecated use Param::PARAM_GLB instead */
 define("PARAM_GLB", "G");
+/** @deprecated use Param::PARAM_USER instead */
 define("PARAM_USER", "U");
+/** @deprecated use Param::PARAM_STYLE instead */
 define("PARAM_STYLE", "S");
 
 class Param extends DbObj
 {
+
+    const PARAM_APP = "A";
+    const PARAM_GLB = "G";
+    const PARAM_USER = "U";
+    const PARAM_STYLE = "S";
+
     var $fields = array(
         "name",
         "type",
@@ -81,7 +91,7 @@ class Param extends DbObj
         $this->buffer = array_merge($this->buffer, $this->GetAll($appid, $userid, $styleid));
     }
     
-    function Set($name, $val, $type = PARAM_GLB, $appid = '')
+    function Set($name, $val, $type = self::PARAM_GLB, $appid = '')
     {
         global $action;
         if ($action) {
@@ -96,7 +106,7 @@ class Param extends DbObj
             if ($pdef->isglob == 'Y') {
                 $appid = $pdef->appid;
                 if ($action) {
-                    if ($type[0] != PARAM_USER) {
+                    if ($type[0] != self::PARAM_USER) {
                         $action->parent->session->close(); // need to refresh all application parameters
                         $action->parent->session->set(); // reopen current session
                         
@@ -117,8 +127,8 @@ class Param extends DbObj
         else $err = $this->Add();
         
         $otype = '';
-        if ($type == PARAM_GLB) $otype = PARAM_APP;
-        elseif ($type == PARAM_APP) $otype = PARAM_GLB;
+        if ($type == self::PARAM_GLB) $otype = self::PARAM_APP;
+        elseif ($type == self::PARAM_APP) $otype = self::PARAM_GLB;
         if ($otype) {
             // delete incompatible parameter
             $paramo = new Param($this->dbaccess, array(
@@ -153,7 +163,7 @@ class Param extends DbObj
         if ($appid == "") $appid = $this->appid;
         $psize = new Param($this->dbaccess, array(
             "FONTSIZE",
-            PARAM_USER . $userid,
+            self::PARAM_USER . $userid,
             "1"
         ));
         if ($psize->val != '') $size = $psize->val;
@@ -162,7 +172,7 @@ class Param extends DbObj
         $query = new QueryDb($this->dbaccess, "Param");
         if ($appid) {
             if ($userid) {
-                $list = $query->Query(0, 0, "TABLE", "select distinct on(paramv.name) paramv.* from paramv left join paramdef on (paramv.name=paramdef.name) where " . "(paramv.type = '" . PARAM_GLB . "') " . " OR (paramv.type='" . PARAM_APP . "' and paramv.appid=$appid)" . " OR (paramv.type='" . PARAM_USER . $userid . "' and paramv.appid=$appid)" . " OR (paramv.type='" . PARAM_USER . $userid . "' and paramdef.isglob='Y')" . " OR (paramv.type='" . PARAM_STYLE . $styleid . "' and paramv.appid=$appid)" . " OR (paramv.type='" . PARAM_STYLE . $styleid . "' and paramdef.isglob='Y')" . " OR (paramv.type='" . PARAM_STYLE . $size . "')" . " order by paramv.name, paramv.type desc");
+                $list = $query->Query(0, 0, "TABLE", "select distinct on(paramv.name) paramv.* from paramv left join paramdef on (paramv.name=paramdef.name) where " . "(paramv.type = '" . self::PARAM_GLB . "') " . " OR (paramv.type='" . self::PARAM_APP . "' and paramv.appid=$appid)" . " OR (paramv.type='" . self::PARAM_USER . $userid . "' and paramv.appid=$appid)" . " OR (paramv.type='" . self::PARAM_USER . $userid . "' and paramdef.isglob='Y')" . " OR (paramv.type='" . self::PARAM_STYLE . $styleid . "' and paramv.appid=$appid)" . " OR (paramv.type='" . self::PARAM_STYLE . $styleid . "' and paramdef.isglob='Y')" . " OR (paramv.type='" . self::PARAM_STYLE . $size . "')" . " order by paramv.name, paramv.type desc");
             } else {
                 $list = $query->Query(0, 0, "TABLE", sprintf("SELECT * from paramv where type='G' or (type='A' and appid=%d);", $appid));
             }
@@ -182,7 +192,7 @@ class Param extends DbObj
     {
         $query = new QueryDb($this->dbaccess, "Param");
         
-        $tlist = $query->Query(0, 0, "TABLE", "select  distinct on(paramv.name, paramv.appid) paramv.*,  paramdef.descr, paramdef.kind  from paramv, paramdef where paramv.name = paramdef.name and paramdef.isuser='Y' and (" . " (type = '" . PARAM_GLB . "') " . " OR (type='" . PARAM_APP . "')" . " OR (type='" . PARAM_STYLE . $styleid . "' )" . " OR (type='" . PARAM_USER . $userid . "' ))" . " order by paramv.name, paramv.appid, paramv.type desc");
+        $tlist = $query->Query(0, 0, "TABLE", "select  distinct on(paramv.name, paramv.appid) paramv.*,  paramdef.descr, paramdef.kind  from paramv, paramdef where paramv.name = paramdef.name and paramdef.isuser='Y' and (" . " (type = '" . self::PARAM_GLB . "') " . " OR (type='" . self::PARAM_APP . "')" . " OR (type='" . self::PARAM_STYLE . $styleid . "' )" . " OR (type='" . self::PARAM_USER . $userid . "' ))" . " order by paramv.name, paramv.appid, paramv.type desc");
         
         return ($tlist);
     }
@@ -196,10 +206,10 @@ class Param extends DbObj
     {
         $query = new QueryDb($this->dbaccess, "Param");
         if ($onlystyle) {
-            $query->AddQuery("type='" . PARAM_STYLE . $styleid . "'");
+            $query->AddQuery("type='" . self::PARAM_STYLE . $styleid . "'");
             $tlist = $query->Query(0, 0, "TABLE");
         } else {
-            $tlist = $query->Query(0, 0, "TABLE", "select  distinct on(paramv.name, paramv.appid) paramv.*,  paramdef.descr, paramdef.kind  from paramv, paramdef where paramv.name = paramdef.name and paramdef.isstyle='Y' and (" . " (type = '" . PARAM_GLB . "') " . " OR (type='" . PARAM_APP . "')" . " OR (type='" . PARAM_STYLE . $styleid . "' ))" . " order by paramv.name, paramv.appid, paramv.type desc");
+            $tlist = $query->Query(0, 0, "TABLE", "select  distinct on(paramv.name, paramv.appid) paramv.*,  paramdef.descr, paramdef.kind  from paramv, paramdef where paramv.name = paramdef.name and paramdef.isstyle='Y' and (" . " (type = '" . self::PARAM_GLB . "') " . " OR (type='" . self::PARAM_APP . "')" . " OR (type='" . self::PARAM_STYLE . $styleid . "' ))" . " order by paramv.name, paramv.appid, paramv.type desc");
         }
         return ($tlist);
     }
@@ -208,7 +218,7 @@ class Param extends DbObj
     {
         $query = new QueryDb($this->dbaccess, "Param");
         
-        $tlist = $query->Query(0, 0, "TABLE", "select  paramv.*, paramdef.descr, paramdef.kind  from paramv, paramdef where paramv.name = paramdef.name and  (" . " (type = '" . PARAM_GLB . "') " . " OR (type='" . PARAM_APP . "'))" . " order by paramv.appid, paramv.name, type desc");
+        $tlist = $query->Query(0, 0, "TABLE", "select  paramv.*, paramdef.descr, paramdef.kind  from paramv, paramdef where paramv.name = paramdef.name and  (" . " (type = '" . self::PARAM_GLB . "') " . " OR (type='" . self::PARAM_APP . "'))" . " order by paramv.appid, paramv.name, type desc");
         
         return ($tlist);
     }

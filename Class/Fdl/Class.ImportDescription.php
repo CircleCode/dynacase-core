@@ -19,56 +19,59 @@ include_once ("FDL/import_file.php");
 
 class importDocumentDescription
 {
-    
-    private $dirid = 0;
-    private $analyze = false;
-    private $policy = "update";
-    private $reinit = false;
-    private $comma = SEPCHAR;
-    private $beginLine = 0;
-    private $familyIcon = 0;
-    private $nLine = 0;
-    private $nbDoc = 0;
-    private $cvsFile;
-    private $reset = array();
+    protected $dirid = 0;
+    protected $analyze = false;
+    protected $policy = "update";
+    protected $reinit = false;
+    protected $beginLine = 0;
+    protected $familyIcon = 0;
+    protected $nLine = 0;
+    protected $nbDoc = 0;
+    protected $reset = array();
     /**
      * @var StructAttribute
      */
-    private $structAttr = null;
+    protected $structAttr = null;
     /**
      * @var array
      */
-    private $colOrders = array();
+    protected $colOrders = array();
     /**
      * @var array
      */
-    private $tcr = array();
-    private $dbaccess = '';
-    private $needCleanStructure = false;
-    private $needCleanParamsAndDefaults = false;
+    protected $tcr = array();
+    protected $dbaccess = '';
+    protected $needCleanStructure = false;
+    protected $needCleanParamsAndDefaults = false;
     /*
      * @var ressource
     */
-    private $fdoc;
+    protected $fdoc;
     /**
      * @var DocFam
      */
-    private $doc;
+    protected $doc;
+
+    private $comma = SEPCHAR;
+    private $csvFile = "";
+
     /**
      * @param string $importFile
-     * @throw Dcp\Exception
+     * @throws Dcp\Exception
      */
     public function __construct($importFile)
     {
+
         if (seemsODS($importFile)) {
-            $this->cvsFile = ods2csv($importFile);
-            $this->fdoc = fopen($this->cvsFile, "r");
+            $this->csvFile = ods2csv($importFile);
         } else {
-            $this->fdoc = fopen($importFile, "r");
+            $this->csvFile = $importFile;
         }
-        if (!$this->fdoc) {
+
+        if (!is_readable($this->csvFile) || !is_file($this->csvFile)) {
             throw new Dcp\Exception(sprintf("no import file found : %s", $importFile));
         }
+
         $this->dbaccess = getParam("FREEDOM_DB");;
     }
     
@@ -115,21 +118,20 @@ class importDocumentDescription
         $this->dbaccess = GetParam("FREEDOM_DB");
         $this->structAttr = null;
         $this->colOrders = array();
-        $this->cvsFile = "";
         
         $this->nLine = 0;
         $this->beginLine = 0;
+
+        $this->fdoc = fopen($this->csvFile, 'r');
         while (!feof($this->fdoc)) {
             $buffer = rtrim(fgets($this->fdoc, 16384));
             $data = explode($this->comma, $buffer);
             $this->importRawData($data);
         }
-        
         fclose($this->fdoc);
-        
-        if ($this->cvsFile) {
-            unlink($this->cvsFile);
-        } // temporary csvfile
+
+        $this->csvFile = "";
+
         return $this->tcr;
     }
     /**

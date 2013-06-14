@@ -122,221 +122,7 @@ class importDocumentDescription
         while (!feof($this->fdoc)) {
             $buffer = rtrim(fgets($this->fdoc, 16384));
             $data = explode($this->comma, $buffer);
-            $this->nLine++;
-            
-            if (!isUTF8($data)) $data = array_map("utf8_encode", $data);
-            // return structure
-            if (count($data) < 1) continue;
-            $this->tcr[$this->nLine] = array(
-                "err" => "",
-                "msg" => "",
-                "specmsg" => "",
-                "folderid" => 0,
-                "foldername" => "",
-                "filename" => "",
-                "title" => "",
-                "id" => "",
-                "values" => array() ,
-                "familyid" => 0,
-                "familyname" => "",
-                "action" => " "
-            );
-            $this->tcr[$this->nLine]["title"] = substr($data[0], 0, 10);
-            $data[0] = trim($data[0]);
-            switch ($data[0]) {
-                    // -----------------------------------
-                    
-                case "BEGIN":
-                    $this->doBegin($data);
-                    break;
-                    // -----------------------------------
-                    
-                case "END":
-                    
-                    $this->doEnd($data);
-                    
-                    break;
-
-                case "RESET":
-                    $this->doReset($data);
-                    break;
-                    // -----------------------------------
-                    
-                case "DOC":
-                    
-                    $this->doDoc($data);
-                    break;
-                    // -----------------------------------
-                    
-                case "SEARCH":
-                    $this->doSearch($data);
-                    
-                    break;
-                    // -----------------------------------
-                    
-                case "TYPE":
-                    if (!$this->doc) {
-                        break;
-                    }
-                    
-                    $this->doc->doctype = $data[1];
-                    $this->tcr[$this->nLine]["msg"] = sprintf(_("set doctype to '%s'") , $data[1]);
-                    break;
-                    // -----------------------------------
-                    
-                case "GENVERSION":
-                    if (!$this->doc) {
-                        break;
-                    }
-                    
-                    $this->doc->genversion = $data[1];
-                    $this->tcr[$this->nLine]["msg"] = sprintf(_("generate version '%s'") , $data[1]);
-                    break;
-                    // -----------------------------------
-                    
-                case "MAXREV":
-                    if (!$this->doc) {
-                        break;
-                    }
-                    
-                    $this->doc->maxrev = intval($data[1]);
-                    $this->tcr[$this->nLine]["msg"] = sprintf(_("max revision '%d'") , $data[1]);
-                    break;
-                    // -----------------------------------
-                    
-                case "ICON": // for family
-                    $this->doIcon($data);
-                    break;
-                    // -----------------------------------
-                    
-                case "DOCICON":
-                    $this->doDocIcon($data);
-                    break;
-                    // -----------------------------------
-                    
-                case "DFLDID":
-                    $this->doDfldid($data);
-                    break;
-                    // -----------------------------------
-                    
-                case "CFLDID":
-                    $this->doCfldid($data);
-                    break;
-                    // -----------------------------------
-                    
-                case "WID":
-                    $this->doWid($data);
-                    break;
-                    // -----------------------------------
-                    
-                case "CVID":
-                    $this->doCvid($data);
-                    break;
-                    // -----------------------------------
-                    
-                case "SCHAR":
-                    if (!$this->doc) {
-                        break;
-                    }
-                    
-                    $this->doc->schar = $data[1];
-                    $this->tcr[$this->nLine]["msg"] = sprintf(_("set special characteristics to '%s'") , $data[1]);
-                    break;
-                    // -----------------------------------
-                    
-                case "METHOD":
-                    $this->doMethod($data);
-                    break;
-                    // -----------------------------------
-                    
-                case "USEFORPROF":
-                    if (!$this->doc) {
-                        break;
-                    }
-                    
-                    $this->doc->usefor = "P";
-                    $this->tcr[$this->nLine]["msg"] = sprintf(_("change special use to '%s'") , $this->doc->usefor);
-                    break;
-                    // -----------------------------------
-                    
-                case "USEFOR":
-                    if (!$this->doc) {
-                        break;
-                    }
-                    
-                    $this->doc->usefor = $data[1];
-                    $this->tcr[$this->nLine]["msg"] = sprintf(_("change special use to '%s'") , $this->doc->usefor);
-                    break;
-                    // -----------------------------------
-                    
-                case "TAG":
-                    $this->doATag($data);
-                    break;
-                    // -----------------------------------
-                    
-                case "CPROFID":
-                    $this->doCprofid($data);
-                    break;
-                    // -----------------------------------
-                    
-                case "PROFID":
-                    $this->doProfid($data);
-                    break;
-
-                case "DEFAULT":
-                    $this->doDefault($data);
-                    break;
-
-                case "INITIAL":
-                    $this->doInitial($data);
-                    break;
-
-                case "IATTR":
-                    $this->doIattr($data);
-                    break;
-                    // -----------------------------------
-                    
-                case "PARAM":
-                case "OPTION":
-                case "ATTR":
-                case "MODATTR":
-                    $this->doAttr($data);
-                    break;
-
-                case "ORDER":
-                    $this->doOrder($data);
-                    break;
-
-                case "KEYS":
-                    $this->doKeys($data);
-                    break;
-
-                case "TAGABLE":
-                    $this->doTagable($data);
-                    break;
-
-                case "PROFIL":
-                    $this->doProfil($data);
-                    
-                    break;
-
-                case "ACCESS":
-                    $this->doAccess($data);
-                    break;
-
-                case "LDAPMAP":
-                    $this->doLdapmap($data);
-                    
-                    break;
-
-                case "PROP":
-                    $this->doProp($data);
-                    break;
-
-                default:
-                    // uninterpreted line
-                    unset($this->tcr[$this->nLine]);
-            }
+            $this->importRawData($data);
         }
         
         fclose($this->fdoc);
@@ -1694,6 +1480,206 @@ class importDocumentDescription
             }
         }
         if ($this->tcr[$this->nLine]["err"]) $this->tcr[$this->nLine]["action"] = "ignored";
+    }
+
+    /**
+     * @param $data
+     */
+    protected function importRawData(&$data)
+    {
+        $this->nLine++;
+
+        if (count($data) < 1) {
+            return;
+        }
+
+        if (!isUTF8($data)){
+            $data = array_map("utf8_encode", $data);
+        }
+
+        $this->tcr[$this->nLine] = array(
+            "err" => "",
+            "msg" => "",
+            "specmsg" => "",
+            "folderid" => 0,
+            "foldername" => "",
+            "filename" => "",
+            "title" => "",
+            "id" => "",
+            "values" => array(),
+            "familyid" => 0,
+            "familyname" => "",
+            "action" => " "
+        );
+        $this->tcr[$this->nLine]["title"] = substr($data[0], 0, 10);
+        $data[0] = trim($data[0]);
+        switch ($data[0]) {
+
+            case "BEGIN":
+                $this->doBegin($data);
+                break;
+
+            case "END":
+                $this->doEnd($data);
+                break;
+
+            case "RESET":
+                $this->doReset($data);
+                break;
+
+            case "DOC":
+                $this->doDoc($data);
+                break;
+
+            case "SEARCH":
+                $this->doSearch($data);
+                break;
+
+            case "TYPE":
+                if (!$this->doc) {
+                    break;
+                }
+
+                $this->doc->doctype = $data[1];
+                $this->tcr[$this->nLine]["msg"] = sprintf(_("set doctype to '%s'"), $data[1]);
+                break;
+
+            case "GENVERSION":
+                if (!$this->doc) {
+                    break;
+                }
+
+                $this->doc->genversion = $data[1];
+                $this->tcr[$this->nLine]["msg"] = sprintf(_("generate version '%s'"), $data[1]);
+                break;
+
+            case "MAXREV":
+                if (!$this->doc) {
+                    break;
+                }
+
+                $this->doc->maxrev = intval($data[1]);
+                $this->tcr[$this->nLine]["msg"] = sprintf(_("max revision '%d'"), $data[1]);
+                break;
+
+            case "ICON": // for family
+                $this->doIcon($data);
+                break;
+
+            case "DOCICON":
+                $this->doDocIcon($data);
+                break;
+
+            case "DFLDID":
+                $this->doDfldid($data);
+                break;
+
+            case "CFLDID":
+                $this->doCfldid($data);
+                break;
+
+            case "WID":
+                $this->doWid($data);
+                break;
+
+            case "CVID":
+                $this->doCvid($data);
+                break;
+
+            case "SCHAR":
+                if (!$this->doc) {
+                    break;
+                }
+
+                $this->doc->schar = $data[1];
+                $this->tcr[$this->nLine]["msg"] = sprintf(_("set special characteristics to '%s'"), $data[1]);
+                break;
+
+            case "METHOD":
+                $this->doMethod($data);
+                break;
+
+            case "USEFORPROF":
+                if (!$this->doc) {
+                    break;
+                }
+
+                $this->doc->usefor = "P";
+                $this->tcr[$this->nLine]["msg"] = sprintf(_("change special use to '%s'"), $this->doc->usefor);
+                break;
+
+            case "USEFOR":
+                if (!$this->doc) {
+                    break;
+                }
+
+                $this->doc->usefor = $data[1];
+                $this->tcr[$this->nLine]["msg"] = sprintf(_("change special use to '%s'"), $this->doc->usefor);
+                break;
+
+            case "TAG":
+                $this->doATag($data);
+                break;
+
+            case "CPROFID":
+                $this->doCprofid($data);
+                break;
+
+            case "PROFID":
+                $this->doProfid($data);
+                break;
+
+            case "DEFAULT":
+                $this->doDefault($data);
+                break;
+
+            case "INITIAL":
+                $this->doInitial($data);
+                break;
+
+            case "IATTR":
+                $this->doIattr($data);
+                break;
+
+            case "PARAM":
+            case "OPTION":
+            case "ATTR":
+            case "MODATTR":
+                $this->doAttr($data);
+                break;
+
+            case "ORDER":
+                $this->doOrder($data);
+                break;
+
+            case "KEYS":
+                $this->doKeys($data);
+                break;
+
+            case "TAGABLE":
+                $this->doTagable($data);
+                break;
+
+            case "PROFIL":
+                $this->doProfil($data);
+                break;
+
+            case "ACCESS":
+                $this->doAccess($data);
+                break;
+
+            case "LDAPMAP":
+                $this->doLdapmap($data);
+                break;
+
+            case "PROP":
+                $this->doProp($data);
+                break;
+
+            default:
+                // uninterpreted line
+                unset($this->tcr[$this->nLine]);
+        }
     }
 }
 
